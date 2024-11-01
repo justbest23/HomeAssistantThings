@@ -1,0 +1,66 @@
+alias: Heat Geyser to 50C by 5pm
+triggers:
+  - seconds: /5
+    trigger: time_pattern
+conditions:
+  - condition: time
+    after: "14:00:00"
+    before: "20:00:00"
+    weekday:
+      - mon
+      - tue
+      - wed
+      - thu
+      - fri
+actions:
+  - choose:
+      - conditions:
+          - condition: state
+            entity_id: input_select.geyser_mode
+            state: "On"
+        sequence:
+          - target:
+              entity_id: switch.geyser_geyser_onoff
+            action: switch.turn_on
+            data: {}
+      - conditions:
+          - condition: state
+            entity_id: input_select.geyser_mode
+            state: "Off"
+        sequence:
+          - target:
+              entity_id: switch.geyser_geyser_onoff
+            action: switch.turn_off
+            data: {}
+      - conditions:
+          - condition: state
+            entity_id: input_select.geyser_mode
+            state: Auto
+          - condition: time
+            after: "14:00:00"
+            before: "20:00:00"
+          - condition: template
+            value_template: >
+              {% set current_temp = states('sensor.geyser_geyser_temp') | float
+              %} {% set target_temp =
+              states('input_number.geyser_target_temperature') | float %} {% set
+              element_power_kw = 2 %} {% set water_volume_l = 100 %} {% set
+              target_time_hour = 17.5 %}
+
+              {% set heating_minutes = ((water_volume_l * (target_temp -
+              current_temp) * 4.18) / (element_power_kw * 60)) | int %} {% set
+              start_time = (target_time_hour * 60) - heating_minutes %} {% set
+              current_time_minutes = now().hour * 60 + now().minute %}
+
+              {{ current_time_minutes >= start_time and current_temp <
+              target_temp }}
+        sequence:
+          - target:
+              entity_id: switch.geyser_geyser_onoff
+            action: switch.turn_on
+            data: {}
+    default:
+      - target:
+          entity_id: switch.geyser_geyser_onoff
+        action: switch.turn_off
+        data: {}
