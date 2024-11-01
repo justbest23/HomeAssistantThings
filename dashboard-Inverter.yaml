@@ -1,0 +1,395 @@
+views:
+  - title: Home
+    badges:
+      - type: entity
+        entity: sensor.lux_battery_max_cell_temperature_live
+        display_type: complete
+        tap_action:
+          action: more-info
+        show_entity_picture: true
+        name: Max Cell Temp
+      - type: entity
+        entity: sensor.lux_battery_min_cell_temperature_live
+        name: Min Cell Temp
+        display_type: complete
+      - type: entity
+        entity: sensor.lux_internal_temperature_live
+        display_type: complete
+        name: Internal Temp
+      - type: entity
+        entity: sensor.lux_radiator_1_temperature_live
+        display_type: complete
+        name: Radiator 1 Temp
+      - type: entity
+        entity: sensor.lux_radiator_2_temperature_live
+        display_type: complete
+        name: Radiator 2 Temp
+      - type: entity
+        entity: number.lux_fan_1_max_speed
+        display_type: complete
+        name: Fan 1 Max Speed
+      - type: entity
+        entity: number.lux_fan_2_max_speed
+        display_type: complete
+        name: Fan 2 Max Speed
+    cards:
+      - type: entities
+        entities:
+          - entity: sensor.lux_battery
+          - entity: sensor.lux_battery_flow_live
+          - entity: sensor.lux_battery_charge_live
+          - entity: sensor.lux_power_from_grid_to_house_live
+          - entity: sensor.lux_internal_temperature_live
+          - entity: sensor.lux_radiator_1_temperature_live
+          - entity: sensor.lux_radiator_2_temperature_live
+          - entity: sensor.lux_battery_max_cell_temperature_live
+          - entity: sensor.lux_battery_min_cell_temperature_live
+          - entity: number.lux_fan_1_max_speed
+          - entity: number.lux_fan_2_max_speed
+          - entity: switch.sonoff_1001d984af
+          - entity: number.lux_ct_clamp_offset_amount
+        title: Inverter Details
+        state_color: true
+      - type: custom:sunsynk-power-flow-card
+        cardstyle: full
+        show_solar: false
+        battery:
+          energy: 0
+          shutdown_soc: 20
+          show_daily: true
+          auto_scale: true
+          invert_power: true
+          show_absolute: true
+          dynamic_colour: true
+          animate: false
+          show_remaining_energy: true
+          linear_gradient: false
+          hide_soc: false
+          max_power: 5000
+        solar:
+          show_daily: false
+          mppts: 2
+        load:
+          show_daily: true
+          dynamic_icon: true
+          auto_scale: true
+          dynamic_colour: true
+          invert_load: false
+          essential_name: Main House
+        grid:
+          show_daily_buy: true
+          show_daily_sell: false
+          show_nonessential: false
+          auto_scale: true
+          invert_grid: false
+          show_absolute: false
+          grid_name: Eskom
+        entities:
+          inverter_voltage_154: sensor.lux_grid_voltage_live
+          load_frequency_192: sensor.lux_grid_frequency_live
+          inverter_power_175: sensor.lux_battery_flow_live
+          inverter_status_59: sensor.lux_status
+          day_battery_charge_70: sensor.lux_battery_charge_daily
+          day_battery_discharge_71: sensor.lux_battery_discharge_daily
+          battery_voltage_183: sensor.lux_battery_voltage_live
+          battery_soc_184: sensor.lux_battery
+          battery_power_190: sensor.lux_battery_flow_live
+          grid_power_169: sensor.sonoff_1001d984af_power
+          day_grid_import_76: sensor.lux_power_from_grid_daily
+          day_load_energy_84: sensor.lux_home_consumption_daily
+          day_pv_energy_108: sensor.sunsynk_day_pv_energy
+          essential_power: sensor.lux_home_consumption_live
+          pv1_power_186: sensor.sunsynk_pv1_power
+          pv2_power_187: sensor.sunsynk_pv2_power
+          pv1_voltage_109: sensor.sunsynk_pv1_voltage
+          pv1_current_110: sensor.sunsynk_pv1_current
+          pv2_voltage_111: sensor.sunsynk_pv2_voltage
+          pv2_current_112: sensor.sunsynk_pv2_current
+          battery_temp_182: sensor.lux_battery_max_cell_temperature_live
+          battery_rated_capacity: sensor.lux_battery_capacity_ah
+          battery_status: sensor.lux_battery
+          radiator_temp_91: sensor.lux_radiator_1_temperature_live
+          dc_transformer_temp_90: sensor.lux_internal_temperature_live
+          grid_voltage: sensor.lux_grid_voltage_live
+          energy_cost_buy: sensor.monthly_energy_901
+          grid_ct_power_172: sensor.sonoff_1001d984af_power
+        inverter:
+          auto_scale: true
+          model: lux
+          autarky: power
+          modern: true
+          three_phase: false
+        large_font: false
+        panel_mode: false
+        show_battery: true
+        show_grid: true
+        dynamic_line_width: true
+      - type: custom:apexcharts-card
+        header:
+          show: true
+          title: Inverter Power vs Radiator Temps
+          show_states: true
+          colorize_states: true
+        all_series_config:
+          stroke_width: 2
+        graph_span: 6h
+        yaxis:
+          - id: °C
+            opposite: true
+          - id: kW
+        series:
+          - entity: sensor.lux_radiator_1_temperature_live
+            type: line
+            curve: smooth
+            yaxis_id: °C
+          - entity: sensor.lux_radiator_2_temperature_live
+            type: line
+            yaxis_id: °C
+          - entity: sensor.lux_battery_flow_live
+            type: line
+            transform: return x / 1000;
+            unit: kW
+            yaxis_id: kW
+          - entity: sensor.lux_grid_flow_live
+            invert: true
+            transform: return x / 1000;
+            type: line
+            unit: kW
+            yaxis_id: kW
+      - type: custom:power-flow-card-plus
+        entities:
+          battery:
+            entity: sensor.lux_battery_flow_live
+            state_of_charge: sensor.lux_battery
+            color_icon: true
+            color_circle: true
+            display_state: two_way
+            color_state_of_charge_value: true
+            tap_action:
+              action: more-info
+            state_of_charge_unit_white_space: true
+            show_state_of_charge: true
+            state_of_charge_decimals: 0
+            invert_state: false
+            use_metadata: false
+            color_value: true
+          grid:
+            entity: sensor.sonoff_1001d984af_power
+            secondary_info: {}
+            invert_state: false
+            use_metadata: false
+            color_value: true
+          solar:
+            display_zero_state: true
+            secondary_info: {}
+          fossil_fuel_percentage:
+            secondary_info: {}
+            entity: sensor.electricity_maps_grid_fossil_fuel_percentage
+            color_value: true
+            use_metadata: false
+            color_icon: true
+          home:
+            secondary_info: {}
+            circle_animation: true
+            subtract_individual: false
+            override_state: false
+            use_metadata: false
+          individual:
+            - entity: sensor.sonoff_1000ae8136_power
+              secondary_info: {}
+              name: Washing and Microwave
+              color_value: true
+              color_icon: true
+              display_zero_state: true
+              calculate_flow_rate: true
+              inverted_animation: false
+              show_direction: false
+              use_metadata: false
+            - entity: sensor.coffee_power
+              secondary_info: {}
+              color_value: true
+              display_zero: true
+              use_metadata: true
+              color_icon: true
+              calculate_flow_rate: true
+            - entity: sensor.stove_and_geyser
+              secondary_info: {}
+              use_metadata: true
+              show_direction: false
+              color_value: true
+              color_icon: true
+              calculate_flow_rate: true
+              display_zero_state: true
+            - entity: sensor.power_excl_stove_and_geyser
+              secondary_info: {}
+              calculate_flow_rate: true
+              display_zero: true
+              color_value: true
+              color_icon: true
+              use_metadata: true
+        clickable_entities: true
+        display_zero_lines:
+          mode: transparency
+          transparency: 50
+          grey_color:
+            - 189
+            - 189
+            - 189
+        use_new_flow_rate_model: true
+        w_decimals: 1
+        kw_decimals: 1
+        min_flow_rate: 0.75
+        max_flow_rate: 6
+        max_expected_power: 7000
+        min_expected_power: 0.01
+        watt_threshold: 1000
+        transparency_zero_lines: 0
+        title: Total Power
+      - type: custom:apexcharts-card
+        header:
+          show: true
+          title: Internet Speed
+          show_states: true
+          colorize_states: true
+        update_interval: 5min
+        all_series_config:
+          stroke_width: 2
+        series:
+          - entity: sensor.speedtest_download
+            type: line
+          - entity: sensor.speedtest_upload
+            type: line
+      - type: custom:apexcharts-card
+        header:
+          show: true
+          title: Radiator Temps
+          show_states: true
+          colorize_states: true
+        all_series_config:
+          stroke_width: 2
+        graph_span: 6h
+        yaxis:
+          - id: °C
+            opposite: true
+          - id: kW
+        series:
+          - entity: sensor.lux_radiator_1_temperature_live
+            type: line
+            curve: smooth
+            yaxis_id: °C
+          - entity: sensor.lux_radiator_2_temperature_live
+            type: line
+            yaxis_id: °C
+      - type: custom:apexcharts-card
+        chart_type: pie
+        header:
+          show: true
+          title: Power Usage Distribution
+          show_states: true
+          colorize_states: true
+        series:
+          - entity: sensor.coffee_energy
+            data_generator: ''
+          - entity: sensor.sonoff_1000ae8136_energy
+            type: area
+          - entity: sensor.stove_and_geyser_energy
+            type: area
+          - entity: sensor.lux_battery_charge_daily
+            type: area
+          - entity: sensor.energy_excl_stove_and_geyser
+      - type: custom:apexcharts-card
+        chart_type: line
+        header:
+          show: true
+          title: Power Usage Distribution - Weekly
+          show_states: true
+          colorize_states: true
+        span:
+          start: week
+        graph_span: 7d
+        series:
+          - entity: sensor.coffee_energy
+            type: line
+          - entity: sensor.sonoff_1000ae8136_energy
+            type: area
+          - entity: sensor.stove_and_geyser_energy
+            type: area
+          - entity: sensor.lux_battery_charge_daily
+            type: area
+          - entity: sensor.energy_excl_stove_and_geyser
+      - type: custom:apexcharts-card
+        chart_type: line
+        header:
+          show: true
+          title: Stove and Geyser Live Usage
+          show_states: true
+          colorize_states: true
+        now:
+          show: true
+        all_series_config:
+          stroke_width: 2
+        span:
+          start: day
+        series:
+          - entity: sensor.stove_and_geyser
+      - type: custom:energy-flow-card-plus
+        entities:
+          battery:
+            entity:
+              consumption: sensor.lux_battery_charge_live
+              production: sensor.lux_battery_discharge_live
+            state_of_charge: sensor.lux_battery
+            use_metadata: false
+          grid:
+            entity:
+              consumption: sensor.sonoff_1001d984af_energy
+            invert_state: false
+            use_metadata: false
+          solar:
+            display_zero_state: false
+          home: {}
+          fossil_fuel_percentage:
+            entity: sensor.electricity_maps_grid_fossil_fuel_percentage
+            show: true
+            color_value: false
+          individual1:
+            entity: sensor.stove_and_geyser_energy
+            icon: mdi:water-boiler
+            name: Stove and Geyser
+            color_value: true
+            calculate_flow_rate: true
+          individual2:
+            entity: sensor.energy_excl_stove_and_geyser
+            use_metadata: true
+        clickable_entities: true
+        display_zero_lines: true
+        use_new_flow_rate_model: true
+        energy_date_selection: true
+        wh_decimals: 1
+        kwh_decimals: 0
+        min_flow_rate: 1
+        max_flow_rate: 6
+        max_expected_energy: 2000
+        min_expected_energy: 10
+        wh_kwh_threshold: 1000
+        title: Energy Flow
+      - type: custom:energy-period-selector-plus
+      - type: custom:apexcharts-card
+        header:
+          show: true
+          title: ApexCharts-Card
+          show_states: true
+          colorize_states: true
+        series:
+          - entity: sensor.geyser_geyser_temp
+            type: line
+          - entity: switch.geyser_geyser_element
+            type: line
+      - show_name: true
+        show_icon: true
+        type: button
+        tap_action:
+          action: toggle
+        entity: input_boolean.switch_geyser_auto
+        name: Geyser Auto Logic
+        show_state: true
