@@ -385,11 +385,3 @@ views:
             type: line
           - entity: switch.geyser_geyser_element
             type: line
-      - show_name: true
-        show_icon: true
-        type: button
-        tap_action:
-          action: toggle
-        entity: input_boolean.switch_geyser_auto
-        name: Geyser Auto Logic
-        show_state: true
