@@ -1,0 +1,35 @@
+alias: Control Geyser Based on Mode
+description: ""
+triggers:
+  - entity_id: input_select.geyser_mode
+    trigger: state
+actions:
+  - choose:
+      - conditions:
+          - condition: state
+            entity_id: input_select.geyser_mode
+            state: "On"
+        sequence:
+          - target:
+              entity_id: switch.geyser_geyser_onoff
+            action: switch.turn_on
+            data: {}
+      - conditions:
+          - condition: state
+            entity_id: input_select.geyser_mode
+            state: "Off"
+        sequence:
+          - target:
+              entity_id: switch.geyser_geyser_onoff
+            action: switch.turn_off
+            data: {}
+      - conditions:
+          - condition: state
+            entity_id: input_select.geyser_mode
+            state: Auto
+        sequence:
+          - target:
+              entity_id: automation.heat_geyser_to_50c_by_5pm
+            action: automation.trigger
+            data:
+              skip_condition: true
