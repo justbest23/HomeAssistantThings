@@ -1,0 +1,141 @@
+views:
+  - title: Home
+    cards:
+      - type: vertical-stack
+        cards:
+          - type: horizontal-stack
+            cards:
+              - type: custom:button-card
+                name: Turn On
+                icon: mdi:water-boiler
+                show_state: true
+                styles:
+                  card:
+                    - background-color: |
+                        [[[
+                          return states['input_select.geyser_mode'].state === 'On' ? 'green' : 'gray';
+                        ]]]
+                    - color: white
+                    - font-weight: bold
+                    - font-size: 16px
+                tap_action:
+                  action: call-service
+                  service: input_select.select_option
+                  service_data:
+                    entity_id: input_select.geyser_mode
+                    option: 'On'
+              - type: custom:button-card
+                name: Turn Off
+                icon: mdi:water-off
+                show_state: true
+                styles:
+                  card:
+                    - background-color: |
+                        [[[
+                          return states['input_select.geyser_mode'].state === 'Off' ? 'red' : 'gray';
+                        ]]]
+                    - color: white
+                    - font-weight: bold
+                    - font-size: 16px
+                tap_action:
+                  action: call-service
+                  service: input_select.select_option
+                  service_data:
+                    entity_id: input_select.geyser_mode
+                    option: 'Off'
+              - type: custom:button-card
+                name: Auto Mode
+                icon: mdi:autorenew
+                show_state: true
+                styles:
+                  card:
+                    - background-color: |
+                        [[[
+                          return states['input_select.geyser_mode'].state === 'Auto' ? 'blue' : 'gray';
+                        ]]]
+                    - color: white
+                    - font-weight: bold
+                    - font-size: 16px
+                tap_action:
+                  action: call-service
+                  service: input_select.select_option
+                  service_data:
+                    entity_id: input_select.geyser_mode
+                    option: Auto
+          - type: gauge
+            entity: sensor.geyser_geyser_temp
+            name: Geyser Temperature
+            min: 0
+            max: 100
+            needle: true
+            segments:
+              - from: 0
+                to: 35
+                color: '#db4437'
+              - from: 35
+                to: 40
+                color: '#ffa600'
+              - from: 40
+                to: 60
+                color: '#43a047'
+              - from: 60
+                to: 65
+                color: '#ffa600'
+              - from: 65
+                to: 100
+                color: '#db4437'
+            style: |
+              ha-card {
+                box-shadow: none;
+                border-radius: 8px;
+                background: var(--card-background-color);
+              }
+          - type: custom:button-card
+            entity: sensor.geyser_status_display
+            name: Geyser Status
+            icon: mdi:water-boiler
+            show_state: true
+            show_icon: true
+            tap_action:
+              action: none
+            hold_action:
+              action: none
+            double_tap_action:
+              action: none
+            styles:
+              card:
+                - background-color: |
+                    [[[
+                      return entity.attributes.display_color;
+                    ]]]
+                - color: white
+                - font-weight: bold
+                - font-size: 20px
+                - height: 50
+          - type: entities
+            title: Geyser Control
+            entities:
+              - entity: input_number.geyser_target_temperature
+                name: Geyser Target Temp
+      - type: custom:button-card
+        entity: switch.coffee_switch
+        icon: mdi:coffee-maker-outline
+        name: Coffee Machine
+        show_state: true
+        styles:
+          card:
+            - background-color: |
+                [[[
+                  return states['switch.coffee_switch'].state === 'on' ? 'green' : 'gray';
+                ]]]
+            - color: white
+            - font-weight: bold
+            - font-size: 16px
+        tap_action:
+          action: toggle
+      - show_name: true
+        show_icon: true
+        type: button
+        tap_action:
+          action: toggle
+        entity: media_player.lg_webos_tv_oled65a26la
