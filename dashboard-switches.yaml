@@ -13,7 +13,7 @@ views:
                   card:
                     - background-color: |
                         [[[
-                          return states['input_select.geyser_mode'].state === 'On' ? 'green' : 'gray';
+                          return states['input_select.geyser_mode'].state === 'On' ? '#4CAF50' : '#757575';
                         ]]]
                     - color: white
                     - font-weight: bold
@@ -32,7 +32,7 @@ views:
                   card:
                     - background-color: |
                         [[[
-                          return states['input_select.geyser_mode'].state === 'Off' ? 'red' : 'gray';
+                          return states['input_select.geyser_mode'].state === 'Off' ? '#F44336' : '#757575';
                         ]]]
                     - color: white
                     - font-weight: bold
@@ -51,7 +51,7 @@ views:
                   card:
                     - background-color: |
                         [[[
-                          return states['input_select.geyser_mode'].state === 'Auto' ? 'blue' : 'gray';
+                          return states['input_select.geyser_mode'].state === 'Auto' ? '#2196F3' : '#757575';
                         ]]]
                     - color: white
                     - font-weight: bold
@@ -62,27 +62,46 @@ views:
                   service_data:
                     entity_id: input_select.geyser_mode
                     option: Auto
+              - type: custom:button-card
+                name: Disabled
+                icon: mdi:block-helper
+                show_state: true
+                styles:
+                  card:
+                    - background-color: |
+                        [[[
+                          return states['input_select.geyser_mode'].state === 'Disabled' ? '#FFA500' : '#757575';
+                        ]]]
+                    - color: white
+                    - font-weight: bold
+                    - font-size: 16px
+                tap_action:
+                  action: call-service
+                  service: input_select.select_option
+                  service_data:
+                    entity_id: input_select.geyser_mode
+                    option: Disabled
           - type: gauge
             entity: sensor.geyser_geyser_temp
             name: Geyser Temperature
-            min: 0
-            max: 100
+            min: 15
+            max: 63
             needle: true
             segments:
-              - from: 0
-                to: 35
+              - from: 15
+                to: 25
                 color: '#db4437'
-              - from: 35
-                to: 40
+              - from: 25
+                to: 31
                 color: '#ffa600'
-              - from: 40
-                to: 60
+              - from: 31
+                to: 38
                 color: '#43a047'
-              - from: 60
-                to: 65
+              - from: 38
+                to: 43
                 color: '#ffa600'
-              - from: 65
-                to: 100
+              - from: 43
+                to: 63
                 color: '#db4437'
             style: |
               ha-card {
@@ -112,11 +131,173 @@ views:
                 - font-weight: bold
                 - font-size: 20px
                 - height: 50
+          - type: custom:button-card
+            entity: input_boolean.geyser_ambient_auto
+            name: Full Auto (Ambient Adjust)
+            icon: mdi:sun-thermometer
+            show_state: true
+            show_icon: false
+            tap_action:
+              action: toggle
+            styles:
+              card:
+                - background-color: |
+                    [[[
+                      return states['input_boolean.geyser_ambient_auto'].state === 'on' ? '#4CAF50' : '#757575';
+                    ]]]
+                - color: white
+                - font-weight: bold
+                - font-size: 18px
+                - height: 80px
+                - box-shadow: |
+                    [[[
+                      return states['input_boolean.geyser_ambient_auto'].state === 'on' ? '0 0 20px rgba(76, 175, 80, 0.6)' : 'none';
+                    ]]]
+              icon:
+                - width: 30px
+                - height: 30px
+              name:
+                - margin-top: 0px
+              custom_fields:
+                info:
+                  - position: absolute
+                  - bottom: 5px
+                  - left: 50%
+                  - transform: translateX(-50%)
+                  - font-size: 12px
+                  - white-space: nowrap
+            custom_fields:
+              info: |
+                [[[
+                  if (states['input_boolean.geyser_ambient_auto'].state === 'on') {
+                    const ambient = states['sensor.temp_humidity_temperature'].state;
+                    const target = states['sensor.geyser_adjusted_target_temp'].state;
+                    return `<span style="opacity: 0.9;">Ambient: ${ambient}°C → Target: ${target}°C</span>`;
+                  }
+                  return '<span style="opacity: 0.7;">Manual temperature control</span>';
+                ]]]
+          - type: conditional
+            conditions:
+              - entity: input_boolean.geyser_ambient_auto
+                state: 'off'
+            card:
+              type: custom:mushroom-number-card
+              entity: input_number.geyser_target_temperature
+              name: Geyser Target Temperature
+              icon: mdi:thermometer
+              display_mode: slider
+          - type: conditional
+            conditions:
+              - entity: input_boolean.geyser_ambient_auto
+                state: 'on'
+            card:
+              type: custom:button-card
+              entity: sensor.geyser_adjusted_target_temp
+              name: Computed Target Temperature
+              icon: mdi:calculator-variant
+              show_state: true
+              show_icon: true
+              tap_action:
+                action: none
+              styles:
+                card:
+                  - background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                  - color: white
+                  - font-weight: bold
+                  - font-size: 18px
+                  - height: 80px
+                  - box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4)
+                state:
+                  - font-size: 24px
+                  - font-weight: bold
+                icon:
+                  - width: 28px
+                  - height: 28px
+                  - color: white
+          - type: horizontal-stack
+            cards:
+              - type: custom:mushroom-number-card
+                entity: input_number.geyser_min_temperature
+                name: Min Temp
+                icon: mdi:thermometer-low
+                display_mode: slider
+                fill_container: false
+              - type: custom:mushroom-number-card
+                entity: input_number.geyser_max_temperature
+                name: Max Temp
+                icon: mdi:thermometer-high
+                display_mode: slider
+          - type: custom:mushroom-number-card
+            entity: input_number.geyser_target_time
+            name: Geyser Target Time
+            fill_container: true
+          - type: horizontal-stack
+            cards:
+              - type: custom:mushroom-number-card
+                entity: input_number.geyser_allowed_start_time
+                name: Earliest Start
+                icon: mdi:clock-start
+                display_mode: slider
+              - type: custom:mushroom-number-card
+                entity: input_number.geyser_allowed_end_time
+                name: Latest End
+                icon: mdi:clock-end
+                display_mode: slider
           - type: entities
-            title: Geyser Control
+            title: Debug Information
+            show_header_toggle: false
+            state_color: true
             entities:
-              - entity: input_number.geyser_target_temperature
-                name: Geyser Target Temp
+              - entity: sensor.geyser_debug_info
+                name: Debug Status
+              - type: attribute
+                entity: sensor.geyser_debug_info
+                attribute: mode
+                name: Mode
+              - type: attribute
+                entity: sensor.geyser_debug_info
+                attribute: switch
+                name: Switch State
+              - type: attribute
+                entity: sensor.geyser_debug_info
+                attribute: current_temp
+                name: Current Temp
+              - type: attribute
+                entity: sensor.geyser_debug_info
+                attribute: adjusted_target
+                name: Adjusted Target
+              - type: attribute
+                entity: sensor.geyser_debug_info
+                attribute: ambient_temp
+                name: Ambient Temp
+              - type: attribute
+                entity: sensor.geyser_debug_info
+                attribute: mode_available
+                name: Mode Available
+              - type: attribute
+                entity: sensor.geyser_debug_info
+                attribute: switch_available
+                name: Switch Available
+              - type: attribute
+                entity: sensor.geyser_debug_info
+                attribute: temp_sensor_available
+                name: Temp Sensor Available
+              - type: attribute
+                entity: sensor.geyser_debug_info
+                attribute: ambient_sensor_available
+                name: Ambient Sensor Available
+              - entity: sensor.geyser_adjusted_target_temp
+                name: Adjusted Target
+              - type: attribute
+                entity: sensor.geyser_adjusted_target_temp
+                attribute: calculation_mode
+                name: Calculation Mode
+              - type: attribute
+                entity: sensor.geyser_adjusted_target_temp
+                attribute: ambient_temperature
+                name: Ambient Temperature
+              - entity: switch.geyser_geyser_onoff
+                name: Geyser Switch
       - type: custom:button-card
         entity: switch.coffee_switch
         icon: mdi:coffee-maker-outline
@@ -133,9 +314,3 @@ views:
             - font-size: 16px
         tap_action:
           action: toggle
-      - show_name: true
-        show_icon: true
-        type: button
-        tap_action:
-          action: toggle
-        entity: media_player.lg_webos_tv_oled65a26la
