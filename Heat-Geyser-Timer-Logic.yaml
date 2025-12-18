@@ -1,66 +1,223 @@
-alias: Heat Geyser to 50C by 5pm
+alias: Heat Geyser to Target Temperature by Target Time
+description: >-
+  Intelligently controls geyser heating based on mode, temperature, and timing
+  calculations with comprehensive debug logging
 triggers:
-  - seconds: /5
+  - seconds: /30
     trigger: time_pattern
-conditions:
-  - condition: time
-    after: "14:00:00"
-    before: "20:00:00"
-    weekday:
-      - mon
-      - tue
-      - wed
-      - thu
-      - fri
+conditions: []
 actions:
-  - choose:
-      - conditions:
-          - condition: state
-            entity_id: input_select.geyser_mode
-            state: "On"
-        sequence:
-          - target:
-              entity_id: switch.geyser_geyser_onoff
-            action: switch.turn_on
-            data: {}
-      - conditions:
-          - condition: state
-            entity_id: input_select.geyser_mode
-            state: "Off"
-        sequence:
-          - target:
-              entity_id: switch.geyser_geyser_onoff
-            action: switch.turn_off
-            data: {}
-      - conditions:
-          - condition: state
-            entity_id: input_select.geyser_mode
-            state: Auto
-          - condition: time
-            after: "14:00:00"
-            before: "20:00:00"
-          - condition: template
-            value_template: >
-              {% set current_temp = states('sensor.geyser_geyser_temp') | float
-              %} {% set target_temp =
-              states('input_number.geyser_target_temperature') | float %} {% set
-              element_power_kw = 2 %} {% set water_volume_l = 100 %} {% set
-              target_time_hour = 17.5 %}
+  - target:
+      entity_id: sensor.geyser_adjusted_target_temp
+    action: homeassistant.update_entity
+  - data:
+      message: >
+        ============================================ GEYSER CONTROL CYCLE START
+        ============================================ TIMESTAMP: {{
+        now().isoformat() }}
 
-              {% set heating_minutes = ((water_volume_l * (target_temp -
-              current_temp) * 4.18) / (element_power_kw * 60)) | int %} {% set
-              start_time = (target_time_hour * 60) - heating_minutes %} {% set
-              current_time_minutes = now().hour * 60 + now().minute %}
+        ENTITY STATUS CHECK: - Mode Entity: {{ geyser_mode }} ({{ 'AVAILABLE' if
+        geyser_mode not in ['unknown', 'unavailable'] else 'UNAVAILABLE' }}) -
+        Switch Entity: {{ states('switch.geyser_geyser_onoff') }} ({{
+        'AVAILABLE' if states('switch.geyser_geyser_onoff') not in ['unknown',
+        'unavailable'] else 'UNAVAILABLE' }}) - Temp Sensor: {{ current_temp
+        }}°C ({{ 'AVAILABLE' if states('sensor.geyser_geyser_temp') not in
+        ['unknown', 'unavailable'] else 'UNAVAILABLE' }}) - Ambient Sensor: {{
+        ambient_temp }}°C ({{ 'AVAILABLE' if
+        states('sensor.temp_humidity_temperature') not in ['unknown',
+        'unavailable'] else 'UNAVAILABLE' }})
 
-              {{ current_time_minutes >= start_time and current_temp <
-              target_temp }}
-        sequence:
-          - target:
-              entity_id: switch.geyser_geyser_onoff
-            action: switch.turn_on
-            data: {}
-    default:
+        MODE & CONTROL: - Geyser Mode: {{ geyser_mode }} - Ambient Auto Enabled:
+        {{ use_ambient_adjustment }}
+
+        TEMPERATURE SETTINGS: - Current Temp: {{ current_temp }}°C - Base
+        Target: {{ target_temp }}°C - Adjusted Target: {{ adjusted_target_temp
+        }}°C - Min Allowed: {{ min_geyser_temp }}°C - Max Allowed: {{
+        max_geyser_temp }}°C - Ambient Temp: {{ ambient_temp }}°C
+
+        TIMING CALCULATIONS: - Current Time: {{ current_time_hours }}:{{
+        current_time_mins }} ({{ current_time_minutes }} mins) - Target Time: {{
+        target_time_hour }}:00 - Required Heating Time: {{ heating_minutes }}
+        minutes - Calculated Start Time: {{ start_time_hours }}:{{
+        start_time_mins }} ({{ start_time_minutes }} mins) - Allowed Window: {{
+        allowed_start_hour }}:{{ allowed_start_mins }} to {{ allowed_end_hour
+        }}:{{ allowed_end_mins }} - Within Allowed Time: {{ is_allowed_time }}
+
+        HEATING CALCULATION DETAILS: - Water Volume: {{ water_volume_l }}L -
+        Element Power: {{ element_power_kw }}kW - Temp Delta: {{
+        adjusted_target_temp - current_temp }}°C - Energy Required: {{
+        ((water_volume_l * (adjusted_target_temp - current_temp) * 4.18 * 1.2) /
+        60) | round(2) }}kWh
+
+        DECISION LOGIC: - Should Start Heating: {{ current_time_minutes >=
+        start_time_minutes and current_temp < adjusted_target_temp }} - Target
+        Reached: {{ current_temp >= adjusted_target_temp }} - Too Early: {{
+        current_time_minutes < start_time_minutes }}
+      level: info
+    action: system_log.write
+  - if:
+      - condition: state
+        entity_id: input_select.geyser_mode
+        state: Disabled
+    then:
+      - data:
+          message: >-
+            [GEYSER] MODE=DISABLED - Geyser under external control, automation
+            stopped
+          level: warning
+        action: system_log.write
+      - stop: Geyser Timer Disabled for External Control
+  - if:
+      - condition: state
+        entity_id: input_select.geyser_mode
+        state: "On"
+    then:
+      - data:
+          message: "[GEYSER] MODE=ON - Turning geyser ON manually"
+          level: info
+        action: system_log.write
+      - target:
+          entity_id: switch.geyser_geyser_onoff
+        action: switch.turn_on
+      - stop: Manual Geyser On
+  - if:
+      - condition: state
+        entity_id: input_select.geyser_mode
+        state: "Off"
+    then:
+      - data:
+          message: "[GEYSER] MODE=OFF - Turning geyser OFF manually"
+          level: info
+        action: system_log.write
       - target:
           entity_id: switch.geyser_geyser_onoff
         action: switch.turn_off
-        data: {}
+      - stop: Manual Geyser Off
+  - if:
+      - condition: template
+        value_template: "{{ not is_allowed_time }}"
+    then:
+      - data:
+          message: >
+            [GEYSER] OUTSIDE_ALLOWED_TIME - Current: {{ current_time_hours }}:{{
+            current_time_mins }},  Allowed: {{ allowed_start_hour }}:{{
+            allowed_start_mins }}-{{ allowed_end_hour }}:{{ allowed_end_mins
+            }},  Turning geyser OFF
+          level: warning
+        action: system_log.write
+      - target:
+          entity_id: switch.geyser_geyser_onoff
+        action: switch.turn_off
+      - stop: >-
+          Outside of Allowed Time ({{ allowed_start_hour | int }}:{{
+          allowed_start_mins | string | pad(2, '0') }}-{{ allowed_end_hour | int
+          }}:{{ allowed_end_mins | string | pad(2, '0') }})
+  - if:
+      - condition: state
+        entity_id: input_select.geyser_mode
+        state: Auto
+    then:
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: >-
+                  {{ current_time_minutes >= start_time_minutes and current_temp
+                  < adjusted_target_temp }}
+            sequence:
+              - data:
+                  message: >
+                    [GEYSER] AUTO_MODE=HEATING - Starting heating cycle -
+                    Current: {{ current_temp }}°C - Target: {{
+                    adjusted_target_temp }}°C (Base: {{ target_temp }}°C,
+                    Ambient: {{ ambient_temp }}°C) - Target Time: {{
+                    target_time_hour }}:00 - Minutes to heat: {{ heating_minutes
+                    }} - Will reach target by: {{ target_time_hour }}:00
+                  level: info
+                action: system_log.write
+              - target:
+                  entity_id: switch.geyser_geyser_onoff
+                action: switch.turn_on
+          - conditions:
+              - condition: template
+                value_template: "{{ current_temp >= adjusted_target_temp }}"
+            sequence:
+              - data:
+                  message: >
+                    [GEYSER] AUTO_MODE=TARGET_REACHED - Turning OFF - Current:
+                    {{ current_temp }}°C - Target: {{ adjusted_target_temp }}°C
+                    - Overshoot: {{ (current_temp - adjusted_target_temp) |
+                    round(1) }}°C
+                  level: info
+                action: system_log.write
+              - target:
+                  entity_id: switch.geyser_geyser_onoff
+                action: switch.turn_off
+        default:
+          - data:
+              message: >
+                [GEYSER] AUTO_MODE=WAITING - Too early to start - Current Time:
+                {{ current_time_hours }}:{{ current_time_mins }} - Start Time:
+                {{ start_time_hours }}:{{ start_time_mins }} - Time until start:
+                {{ (start_time_minutes - current_time_minutes) }} minutes -
+                Current Temp: {{ current_temp }}°C - Target: {{
+                adjusted_target_temp }}°C
+              level: info
+            action: system_log.write
+          - target:
+              entity_id: switch.geyser_geyser_onoff
+            action: switch.turn_off
+  - data:
+      message: >
+        [GEYSER] CYCLE_END - Switch state: {{
+        states('switch.geyser_geyser_onoff') }}
+        ============================================
+      level: info
+    action: system_log.write
+variables:
+  current_temp: "{{ states('sensor.geyser_geyser_temp') | float(0) }}"
+  target_temp: "{{ states('input_number.geyser_target_temperature') | float(35) }}"
+  geyser_mode: "{{ states('input_select.geyser_mode') }}"
+  target_time_hour: "{{ states('input_number.geyser_target_time') | float(17) }}"
+  ambient_temp: "{{ states('sensor.temp_humidity_temperature') | float(20) }}"
+  baseline_ambient_temp: 20
+  baseline_geyser_temp: 40
+  ambient_to_geyser_slope: -0.667
+  use_ambient_adjustment: "{{ is_state('input_boolean.geyser_ambient_auto', 'on') }}"
+  min_geyser_temp: "{{ states('input_number.geyser_min_temperature') | float(20) }}"
+  max_geyser_temp: "{{ states('input_number.geyser_max_temperature') | float(70) }}"
+  adjusted_target_temp: "{{ states('sensor.geyser_adjusted_target_temp') | float(target_temp) }}"
+  element_power_kw: 2
+  water_volume_l: 150
+  heating_minutes: >
+    {% set temp_delta = adjusted_target_temp - current_temp %} {% if temp_delta
+    <= 0 %}
+      0
+    {% else %}
+      {{ ((water_volume_l * temp_delta * 4.18 * 1.2) / (element_power_kw * 60)) | int }}
+    {% endif %}
+  start_time_minutes: >
+    {% set target_mins = (target_time_hour * 60) | int %} {% set heat_mins =
+    heating_minutes | int %} {{ target_mins - heat_mins }}
+  current_time_minutes: "{{ now().hour * 60 + now().minute }}"
+  current_time_hours: "{{ now().hour }}"
+  current_time_mins: "{{ '%02d' | format(now().minute) }}"
+  start_time_hours: "{{ (start_time_minutes // 60) | int }}"
+  start_time_mins: "{{ '%02d' | format(start_time_minutes % 60) }}"
+  allowed_start_hour: "{{ states('input_number.geyser_allowed_start_time') | float(10) }}"
+  allowed_start_minutes: "{{ (allowed_start_hour * 60) | int }}"
+  allowed_start_mins: "{{ '%02d' | format((allowed_start_hour * 60) | int % 60) }}"
+  allowed_end_hour: "{{ states('input_number.geyser_allowed_end_time') | float(21) }}"
+  allowed_end_minutes: "{{ (allowed_end_hour * 60) | int }}"
+  allowed_end_mins: "{{ '%02d' | format((allowed_end_hour * 60) | int % 60) }}"
+  is_allowed_time: >
+    {% set current = current_time_minutes %} {% set start =
+    allowed_start_minutes %} {% set end = allowed_end_minutes %} {% if start <
+    end %}
+      {# Normal case: start and end on same day (e.g., 10:00 to 21:00) #}
+      {{ current >= start and current < end }}
+    {% else %}
+      {# Overnight case: window crosses midnight (e.g., 21:30 to 10:00) #}
+      {{ current >= start or current < end }}
+    {% endif %}
+mode: restart
+max_exceeded: silent
