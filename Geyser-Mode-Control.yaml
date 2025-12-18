@@ -14,6 +14,12 @@ actions:
               entity_id: switch.geyser_geyser_onoff
             action: switch.turn_on
             data: {}
+          - action: automation.turn_off
+            metadata: {}
+            data:
+              stop_actions: true
+            target:
+              entity_id: automation.heat_geyser_to_target_temperature_by_target_time
       - conditions:
           - condition: state
             entity_id: input_select.geyser_mode
@@ -23,13 +29,24 @@ actions:
               entity_id: switch.geyser_geyser_onoff
             action: switch.turn_off
             data: {}
+          - action: automation.turn_off
+            metadata: {}
+            data:
+              stop_actions: true
+            target:
+              entity_id: automation.heat_geyser_to_target_temperature_by_target_time
       - conditions:
           - condition: state
             entity_id: input_select.geyser_mode
             state: Auto
         sequence:
           - target:
-              entity_id: automation.heat_geyser_to_50c_by_5pm
+              entity_id: automation.heat_geyser_to_target_temperature_by_target_time
             action: automation.trigger
             data:
               skip_condition: true
+          - action: automation.turn_on
+            metadata: {}
+            data: {}
+            target:
+              entity_id: automation.heat_geyser_to_target_temperature_by_target_time
