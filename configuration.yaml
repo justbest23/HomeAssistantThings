@@ -1,0 +1,272 @@
+# Loads default set of integrations. Do not remove.
+default_config:
+
+# Load frontend themes from the themes folder
+frontend:
+  themes: !include_dir_merge_named themes
+
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
+sensor: !include snmp_sensors.yaml
+prometheus:
+statistics:
+
+http:
+  server_port: 8123
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - 172.30.33.0/24
+    - 172.18.0.14
+    - 192.168.0.0/24
+    - 192.168.0.203
+    - 192.168.0.18
+    - 192.168.0.1
+
+# Enhanced logging for geyser control debugging
+logger:
+  default: info
+  logs:
+    homeassistant.components.template: debug
+    homeassistant.helpers.template: debug
+    homeassistant.components.automation: debug
+
+# =============================================================================
+# GEYSER CONTROL CONFIGURATION
+# =============================================================================
+
+# Mode selection for geyser operation
+input_select:
+  geyser_mode:
+    name: Geyser Mode
+    options:
+      - "On"
+      - "Off"
+      - "Auto"
+      - "Disabled"
+    initial: "Auto"
+    icon: mdi:water-boiler
+
+# Geyser control input helpers
+input_boolean:
+  geyser_ambient_auto:
+    name: Geyser Ambient Auto-Adjust
+    initial: false
+    icon: mdi:sun-thermometer
+
+input_number:
+  # Core temperature settings
+  geyser_target_temperature:
+    name: Geyser Target Temperature
+    min: 20
+    max: 60
+    step: 1
+    initial: 50
+    mode: slider
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer
+    
+  geyser_min_temperature:
+    name: Geyser Minimum Temperature
+    min: 15
+    max: 40
+    step: 1
+    initial: 40
+    mode: slider
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-low
+    
+  geyser_max_temperature:
+    name: Geyser Maximum Temperature
+    min: 30
+    max: 80
+    step: 1
+    initial: 70
+    mode: slider
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-high
+  
+  # Timing settings
+  geyser_target_time:
+    name: Geyser Target Time
+    min: 0
+    max: 23.99
+    step: 0.25
+    initial: 17
+    mode: box
+    unit_of_measurement: ""
+    icon: mdi:clock-check
+
+geyser_allowed_start_time:
+    name: Geyser Allowed Start Time
+    min: 0
+    max: 23.99
+    step: 0.25
+    initial: 10
+    mode: box
+    unit_of_measurement: ""
+    icon: mdi:clock-start
+    
+  geyser_allowed_end_time:
+    name: Geyser Allowed End Time
+    min: 0
+    max: 23.99
+    step: 0.25
+    initial: 21
+    mode: box
+    unit_of_measurement: ""
+    icon: mdi:clock-end
+
+
+# Template sensors for geyser control
+template:
+  # Trigger-based sensor for adjusted target temperature
+  - trigger:
+      - platform: state
+        entity_id:
+          - sensor.temp_humidity_temperature
+          - input_boolean.geyser_ambient_auto
+          - input_number.geyser_target_temperature
+          - input_number.geyser_min_temperature
+          - input_number.geyser_max_temperature
+      - platform: time_pattern
+        seconds: /30
+    sensor:
+      - name: "Geyser Adjusted Target Temp"
+        unique_id: geyser_adjusted_target_temp
+        unit_of_measurement: "°C"
+        state_class: measurement
+        icon: mdi:thermometer-auto
+        state: >
+          {% set target_temp = states('input_number.geyser_target_temperature') | float(50) %}
+          {% set ambient_temp = states('sensor.temp_humidity_temperature') | float(20) %}
+          {% set use_ambient = is_state('input_boolean.geyser_ambient_auto', 'on') %}
+          {% set min_temp = states('input_number.geyser_min_temperature') | float(40) %}
+          {% set max_temp = states('input_number.geyser_max_temperature') | float(70) %}
+          {% if use_ambient %}
+            {% set baseline_ambient = 20 %}
+            {% set baseline_geyser = 40 %}
+            {% set slope = -0.667 %}
+            {% set calculated = baseline_geyser + ((ambient_temp - baseline_ambient) * slope) %}
+            {% set clamped = [min_temp, calculated, max_temp] | sort %}
+            {{ clamped[1] | round(1) }}
+          {% else %}
+            {{ target_temp | round(1) }}
+          {% endif %}
+        attributes:
+          calculation_mode: >
+            {{ 'ambient_adjusted' if is_state('input_boolean.geyser_ambient_auto', 'on') else 'manual' }}
+          ambient_temperature: >
+            {{ states('sensor.temp_humidity_temperature') | float(20) }}
+          base_target: >
+            {{ states('input_number.geyser_target_temperature') | float(50) }}
+          min_limit: >
+            {{ states('input_number.geyser_min_temperature') | float(40) }}
+          max_limit: >
+            {{ states('input_number.geyser_max_temperature') | float(70) }}
+
+
+   # Regular template sensors
+  - sensor:
+      - name: "Geyser Status Display"
+        unique_id: geyser_status_display
+        icon: mdi:water-boiler
+        state: >
+          {% set mode = states('input_select.geyser_mode') %}
+          {% set switch_state = states('switch.geyser_geyser_onoff') %}
+          {% set current_temp = states('sensor.geyser_geyser_temp') | float(0) %}
+          {% set target = states('sensor.geyser_adjusted_target_temp') | float(50) %}
+          
+          {% if mode == 'Disabled' %}
+            Disabled - External Control
+          {% elif mode == 'On' %}
+            Manually ON
+          {% elif mode == 'Off' %}
+            Manually OFF
+          {% elif mode == 'Auto' %}
+            {% if switch_state == 'on' %}
+              Heating to {{ target }}°C ({{ current_temp }}°C)
+            {% elif current_temp >= target %}
+              Target Reached ({{ current_temp }}°C)
+            {% else %}
+              Waiting to Heat
+            {% endif %}
+          {% else %}
+            Unknown Mode
+          {% endif %}
+        attributes:
+          display_color: >
+            {% set mode = states('input_select.geyser_mode') %}
+            {% set switch_state = states('switch.geyser_geyser_onoff') %}
+            {% set current_temp = states('sensor.geyser_geyser_temp') | float(0) %}
+            {% set target = states('sensor.geyser_adjusted_target_temp') | float(50) %}
+            
+            {% if mode == 'Disabled' %}
+              #FFA500
+            {% elif mode == 'On' or (mode == 'Auto' and switch_state == 'on') %}
+              #4CAF50
+            {% elif mode == 'Off' %}
+              #F44336
+            {% elif mode == 'Auto' and current_temp >= target %}
+              #2196F3
+            {% else %}
+              #757575
+            {% endif %}
+          mode: "{{ states('input_select.geyser_mode') }}"
+          switch_state: "{{ states('switch.geyser_geyser_onoff') }}"
+          current_temperature: "{{ states('sensor.geyser_geyser_temp') }}"
+          target_temperature: "{{ states('sensor.geyser_adjusted_target_temp') }}"
+
+        - name: "Geyser Debug Info"
+        unique_id: geyser_debug_info
+        icon: mdi:bug
+        state: >
+          {% set mode = states('input_select.geyser_mode') %}
+          {% set switch = states('switch.geyser_geyser_onoff') %}
+          Debug: {{ mode }} | Switch: {{ switch }}
+        attributes:
+          mode: "{{ states('input_select.geyser_mode') }}"
+          switch: "{{ states('switch.geyser_geyser_onoff') }}"
+          current_temp: "{{ states('sensor.geyser_geyser_temp') }}"
+          target_temp: "{{ states('input_number.geyser_target_temperature') }}"
+          adjusted_target: "{{ states('sensor.geyser_adjusted_target_temp') }}"
+          ambient_temp: "{{ states('sensor.temp_humidity_temperature') }}"
+          ambient_auto: "{{ states('input_boolean.geyser_ambient_auto') }}"
+          target_time: "{{ states('input_number.geyser_target_time') }}"
+          allowed_start: "{{ states('input_number.geyser_allowed_start_time') }}"
+          allowed_end: "{{ states('input_number.geyser_allowed_end_time') }}"
+          min_temp: "{{ states('input_number.geyser_min_temperature') }}"
+          max_temp: "{{ states('input_number.geyser_max_temperature') }}"
+          mode_available: "{{ states('input_select.geyser_mode') not in ['unknown', 'unavailable'] }}"
+          switch_available: "{{ states('switch.geyser_geyser_onoff') not in ['unknown', 'unavailable'] }}"
+          temp_sensor_available: "{{ states('sensor.geyser_geyser_temp') not in ['unknown', 'unavailable'] }}"
+          ambient_sensor_available: "{{ states('sensor.temp_humidity_temperature') not in ['unknown', 'unavailable'] }}"
+          last_update: "{{ now().isoformat() }}"
+
+# Consolidated sensor configurations
+sensor:
+  # REST sensor for Cronitor
+  - platform: rest
+    name: Cronitor Device Heartbeat
+    resource: "https://cronitor.io/api/monitors/device-heartbeat"
+    headers:
+      Authorization: "18223cc9fe314b13a8cfe5d07dc28455"
+    value_template: >
+      {% if value_json.latest_event is defined %}
+        {{ value_json.latest_event.msg }}
+      {% else %}
+        unavailable
+      {% endif %}
+    scan_interval: 5
+    json_attributes:
+      - latest_event
+
+
+  # Statistics sensor for heating efficiency
+  - platform: statistics
+    name: "Geyser Heating Metrics"
+    entity_id: sensor.geyser_geyser_temp
+    sampling_size: 100
+    state_characteristic: mean
+    max_age:
+      hours: 24
